@@ -33,6 +33,7 @@ tests/
 media/
 /deploy/docker_env/mysql/data/
 /deploy/docker_env/redis/data/
+/deploy/docker_env/mysql/log/
 
 # 其他
 .DS_Store

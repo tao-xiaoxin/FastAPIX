@@ -28,8 +28,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: "ZH$$ewA38pjgyn"
       MYSQL_DATABASE: "fastapix_db"
-      MYSQL_USER: root
-      MYSQL_PASSWORD: "ZH$$ewA38pjgyn"
       TZ: Asia/Shanghai
     volumes:
       - ./deploy/docker_env/mysql/config:/etc/mysql/conf.d
