@@ -8,8 +8,6 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 from apps.auth.handlers import (
     login,
     register,
-    create_access_key,
-    list_access_keys,
     issue_token,
     refresh_token,
     revoke_token,
@@ -28,21 +26,6 @@ auth_router.add_api_route(
     endpoint=register,
     methods=["POST"],
     description="用户注册",
-)
-
-# 访问密钥管理路由
-auth_router.add_api_route(
-    path="/keys",
-    endpoint=create_access_key,
-    methods=["POST"],
-    description="创建访问密钥",
-)
-
-auth_router.add_api_route(
-    path="/keys",
-    endpoint=list_access_keys,
-    methods=["GET"],
-    description="获取访问密钥列表",
 )
 
 # Token管理路由
@@ -64,5 +47,8 @@ auth_router.add_api_route(
     path="/token/revoke",
     endpoint=revoke_token,
     methods=["POST"],
-    description="撤销访问令牌",
+    description="吊销令牌",
 )
+
+# 注意：AccessKey相关的路由已被移除
+# 令牌管理现在直接通过用户凭据实现，并存储在Redis中

@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Dict, List, Any, Optional
-from apps.auth.schemas import Token, UserCreate, UserRead, AccessKeyCreate, AccessKeyResponse
+from apps.auth.schemas import Token, UserCreate, UserRead, TokenPair
 from apps.auth.service import AuthService
 from apps.auth.dependencies import get_auth_service
 from utils.response import APIResponse
@@ -35,43 +35,15 @@ async def register(
         return APIResponse.error(msg=str(e), code=400, status_code=400)
 
 
-async def create_access_key(
-    key_data: AccessKeyCreate,
-    auth_service: AuthService = Depends(get_auth_service)
-):
-    """创建访问密钥API"""
-    try:
-        access_key = await auth_service.create_access_key(key_data)
-        return APIResponse.success(data=access_key, msg="访问密钥创建成功")
-    except ValueError as e:
-        return APIResponse.error(msg=str(e), code=400, status_code=400)
-
-
-async def list_access_keys(
-    user_id: int,
-    skip: int = 0, 
-    limit: int = 10,
-    auth_service: AuthService = Depends(get_auth_service)
-):
-    """获取访问密钥列表API"""
-    keys = await auth_service.get_access_keys(user_id, skip, limit)
-    return APIResponse.success(
-        data=keys, 
-        msg="获取访问密钥列表成功", 
-        page=skip//limit+1, 
-        limit=limit, 
-        total=len(keys)
-    )
-
-
 async def issue_token(
-    access_key: str,
+    username: str,
+    password: str,
     expires_delta: Optional[int] = None,
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """签发访问令牌API"""
     try:
-        token_pair = await auth_service.issue_token(access_key, expires_delta)
+        token_pair = await auth_service.issue_token(username, password, expires_delta)
         return APIResponse.success(data=token_pair, msg="令牌签发成功")
     except ValueError as e:
         return APIResponse.error(msg=str(e), code=400, status_code=400)
@@ -90,14 +62,18 @@ async def refresh_token(
 
 
 async def revoke_token(
-    access_key: str,
+    token: str,
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    """撤销访问令牌API"""
+    """吊销令牌API"""
     try:
-        success = await auth_service.revoke_tokens(access_key)
+        success = await auth_service.revoke_tokens(token)
         if success:
-            return APIResponse.success(data=None, msg="令牌撤销成功")
-        return APIResponse.error(msg="令牌撤销失败", code=400, status_code=400)
+            return APIResponse.success(data=None, msg="令牌吊销成功")
+        return APIResponse.error(msg="令牌吊销失败", code=400, status_code=400)
     except ValueError as e:
-        return APIResponse.error(msg=str(e), code=400, status_code=400) 
+        return APIResponse.error(msg=str(e), code=400, status_code=400)
+
+# 注意：AccessKey相关的处理函数已被移除
+# 令牌管理现在通过token_manager实现，并存储在Redis中
+# 这种设计提供了更好的性能、安全性和水平扩展能力 

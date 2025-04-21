@@ -18,4 +18,4 @@ echo "🚀 启动 FastAPIX 应用..."
 # export LOG_LEVEL=info
 
 # 使用 gunicorn 启动应用
-gunicorn -c deploy/gunicorn_conf.py main:app 
+gunicorn -c deploy/gunicorn/gunicorn_conf.py main:app 

@@ -7,6 +7,9 @@ FastAPIX 是一个基于 FastAPI 框架的高性能、扩展性强的 Web 应用
 ### 主要功能
 
 * 完整的用户认证与授权系统
+  * 基于JWT的访问令牌和刷新令牌
+  * 使用Redis存储令牌，提高性能和安全性
+  * 支持令牌吊销和多端登录控制
 * 模块化的项目结构，便于团队协作与扩展
 * 内置数据库 ORM 支持 (SQLAlchemy)
 * Redis 缓存集成
@@ -103,27 +106,114 @@ class UserService:
 
 #### 依赖注入模式
 
-**路由中的依赖注入示例：**
-```python
-@router.post("/users/", response_model=UserResponse)
-def create_user(
-    user_data: UserCreate,
-    user_service: UserService = Depends(get_user_service)
-):
-    """创建新用户的API端点"""
-    return user_service.create_user(user_data)
+FastAPIX采用模块化的依赖注入设计,每个功能模块管理自己的依赖:
 
-# 依赖提供者
-def get_user_service(db: Session = Depends(get_db)):
+**模块级依赖定义 (apps/users/dependencies.py):**
+```python
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from engines import AsyncDBSession
+from apps.users.repository import UserRepository
+from apps.users.service import UserService
+
+def get_user_service(db: AsyncSession = Depends(AsyncDBSession)) -> UserService:
+    """获取用户服务实例"""
     user_repository = UserRepository(db)
     return UserService(user_repository)
 ```
 
-**优势：**
-- 实现松耦合设计
-- 简化组件替换和测试
-- 提高代码可重用性
-- 支持更灵活的配置管理
+**处理器实现 (apps/users/handlers.py):**
+```python
+from fastapi import Depends
+from apps.users.schemas import UserCreate, UserResponse
+from apps.users.service import UserService
+from apps.users.dependencies import get_user_service
+from utils.response import APIResponse
+
+async def create_user(
+    user_data: UserCreate,
+    user_service: UserService = Depends(get_user_service)
+) -> UserResponse:
+    """创建新用户的处理函数"""
+    created_user = await user_service.create_user(user_data)
+    return APIResponse.success(data=created_user, msg="用户创建成功")
+```
+
+**在API路由中注册处理器 (apps/users/router.py):**
+```python
+from fastapi import APIRouter
+from apps.users.schemas import UserResponse
+from apps.users.handlers import create_user
+
+router = APIRouter()
+
+router.add_api_route(
+    "/",
+    endpoint=create_user,
+    methods=["POST"],
+    response_model=UserResponse,
+    summary="创建新用户"
+)
+```
+
+**优势:**
+- 模块化封装 - 每个模块管理自己的依赖
+- 松耦合设计 - 通过依赖注入实现组件解耦
+- 简化测试 - 便于在测试中替换依赖
+- 代码复用 - 减少重复的依赖创建逻辑
+
+### 数据处理流程图
+
+为了更直观地理解FastAPIX的架构和数据流转过程，以下是一个完整的数据处理流程图：
+
+```
+┌────────────────┐      ┌────────────────┐      ┌────────────────┐
+│                │      │                │      │                │
+│   HTTP请求     │──────▶    路由层      │──────▶    处理器层     │
+│   (Request)    │      │   (Router)     │      │   (Handler)    │
+│                │      │                │      │                │
+└────────────────┘      └────────────────┘      └────────────────┘
+                                                        │
+                                                        │ 依赖注入
+                                                        ▼
+┌────────────────┐      ┌────────────────┐      ┌────────────────┐
+│                │      │                │      │                │
+│    HTTP响应    │◀─────│    响应格式化   │◀─────│    服务层      │
+│   (Response)   │      │   (Response)   │      │   (Service)    │
+│                │      │                │      │                │
+└────────────────┘      └────────────────┘      └────────────────┘
+                                                        │
+                                                        │ 调用
+                                                        ▼
+                                               ┌────────────────┐
+                                               │                │
+                                               │    仓库层      │
+                                               │  (Repository)  │
+                                               │                │
+                                               └────────────────┘
+                                                        │
+                                                        │ 操作
+                                                        ▼
+                                               ┌────────────────┐
+                                               │                │
+                                               │    数据库      │
+                                               │   (Database)   │
+                                               │                │
+                                               └────────────────┘
+```
+
+**数据流处理说明：**
+
+1. **请求接收**：HTTP请求进入系统，由FastAPI框架解析请求数据
+2. **路由分发**：路由层(Router)负责将请求分发到对应的处理器
+3. **请求处理**：处理器层(Handler)接收请求，并依赖注入相关服务
+4. **业务处理**：服务层(Service)包含所有业务逻辑，执行核心处理
+5. **数据访问**：仓库层(Repository)提供数据访问接口，处理与数据库交互
+6. **数据持久化**：数据库层存储或检索数据
+7. **响应构建**：数据经过服务层处理后，由APIResponse格式化
+8. **响应返回**：将格式化后的响应返回给客户端
+
+每一层都有明确的职责和边界，通过依赖注入实现松耦合，使系统更加灵活、可维护和可测试。
 
 ## 开发理念
 
@@ -153,6 +243,13 @@ redis_client.set("user:profile:1", json.dumps(user_data), expiration=3600, db=se
 # 获取会话数据
 session_data = redis_client.get(session_id, db=settings.REDIS_DB_SESSION)
 ```
+
+访问令牌也存储在Redis中，而不是数据库，这样可以:
+
+1. **提高性能** - 频繁的令牌验证操作可以快速完成
+2. **简化令牌管理** - 令牌自动过期机制，不需要额外的清理任务
+3. **增强安全性** - 可以即时吊销令牌
+4. **支持水平扩展** - 多实例之间可以共享令牌信息
 
 ## 推荐的工具
 
@@ -196,16 +293,18 @@ session_data = redis_client.get(session_id, db=settings.REDIS_DB_SESSION)
 
 ```
 FastAPIX
-├── main.py                 # 入口文件
-├── config                  # 配置文件目录
+├── main.py                 # 应用入口文件
+├── core                    # 核心配置
 │   ├── __init__.py
-│   └── settings.py         # 项目设置和环境变量
+│   ├── conf.py             # 项目配置
+│   ├── path_conf.py        # 路径配置
+│   ├── router.py           # 主路由注册
+│   ├── registrar.py        # 应用注册与初始化
+│   └── security.py         # 安全配置
 ├── engines                 # 数据库连接
 │   ├── __init__.py
-│   ├── database.py         # MySQL连接
 │   ├── mysql.py            # MySQL管理器
-│   ├── redis.py            # Redis连接
-│   └── base.py             # 基础定义
+│   └── redis.py            # Redis连接
 ├── middleware              # 中间件组件
 │   ├── __init__.py
 │   ├── auth_middleware.py  # 认证中间件
@@ -221,14 +320,6 @@ FastAPIX
 │   ├── serializers.py      # 序列化工具
 │   ├── token_manager.py    # 令牌管理
 │   └── security.py         # 安全相关工具(加密、token等)
-├── core                    # 核心配置
-│   ├── __init__.py
-│   ├── conf.py             # 项目配置
-│   ├── dependencies.py     # 依赖注入
-│   ├── path_conf.py        # 路径配置
-│   ├── router.py           # 主路由注册
-│   ├── registrar.py        # 应用注册
-│   └── security.py         # 安全配置
 ├── apps                    # 业务模块目录
 │   ├── __init__.py
 │   ├── users               # 用户模块
@@ -237,6 +328,7 @@ FastAPIX
 │   │   ├── repository.py   # 数据访问层
 │   │   ├── schemas.py      # 数据验证和响应模型
 │   │   ├── service.py      # 业务逻辑
+│   │   ├── dependencies.py # 模块依赖注入
 │   │   ├── handlers.py     # 请求处理层
 │   │   └── router.py       # API路由
 │   └── auth                # 认证模块
@@ -245,16 +337,23 @@ FastAPIX
 │       ├── repository.py   # 数据访问层
 │       ├── schemas.py      # 数据验证和响应模型
 │       ├── service.py      # 业务逻辑
+│       ├── dependencies.py # 模块依赖注入
 │       ├── handlers.py     # 请求处理层
 │       └── router.py       # API路由
 ├── deploy                  # 部署相关
-│   ├── docker_env          # Docker环境
-│   ├── gunicorn_conf.py    # Gunicorn配置
-│   └── start.sh            # 启动脚本
+│   ├── docker_env          # Docker环境配置
+│   │   ├── mysql           # MySQL Docker配置
+│   │   └── redis           # Redis Docker配置
+│   └── gunicorn            # Gunicorn部署
+│       ├── gunicorn_conf.py # Gunicorn配置
+│       └── start.sh        # 启动脚本
+├── sql                     # SQL脚本目录
+│   └── schema.sql          # 数据库表结构定义
 ├── requirements.txt        # 项目依赖
 ├── .env                    # 环境变量
 ├── .env.example            # 环境变量示例
 ├── docker-compose.yml      # Docker组合配置
+├── .gitignore              # Git忽略文件
 └── README.md               # 项目文档
 ```
 
@@ -284,7 +383,7 @@ FastAPIX
 2. 使用推荐的工具从数据库生成 SQLAlchemy 模型代码
 3. 在 `apps` 目录下创建新的模块目录
 4. 实现 models.py, repository.py, schemas.py, service.py 和 router.py
-5. 在 api/routes.py 中注册新的路由
+5. 在 `core/router.py` 中注册新的路由
 6. 添加相应的单元测试
 
 ### 中间件系统
@@ -327,9 +426,9 @@ FastAPIX 充分利用 FastAPI 的依赖注入系统，帮助你：
 2. 使用 `gunicorn` 和 `deploy/gunicorn.conf.py` 配置文件启动应用，执行如下命令启动：
 
 ```
-cd deploy
+cd deploy/gunicorn
 chmod +x start.sh
-./start.sh 8099
+./start.sh
 ```
 
 3. 最后使用 Nginx 作为反向代理并配置域名。

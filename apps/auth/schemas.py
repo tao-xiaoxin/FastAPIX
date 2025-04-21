@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
+from core.conf import settings
 
 class UserBase(BaseModel):
     username: str
@@ -24,30 +25,10 @@ class UserRead(UserBase):
         
 class Token(BaseModel):
     access_token: str
-    token_type: str
+    token_type: str = settings.TOKEN_TYPE
     
 class TokenPair(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = settings.TOKEN_TYPE
     
-class AccessKeyCreate(BaseModel):
-    username: str
-    password: str
-    name: str
-    description: Optional[str] = None
-    expires_at: Optional[datetime] = None
-    
-class AccessKeyResponse(BaseModel):
-    id: int
-    user_id: int
-    name: str
-    access_key: str
-    description: Optional[str] = None
-    created_at: datetime
-    expires_at: Optional[datetime] = None
-    last_used_at: Optional[datetime] = None
-    is_enabled: bool
-    
-    class Config:
-        orm_mode = True

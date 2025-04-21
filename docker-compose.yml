@@ -32,7 +32,7 @@ services:
       - ./deploy/docker_env/mysql/config:/etc/mysql/conf.d
       - ./deploy/docker_env/mysql/data:/var/lib/mysql
       - ./deploy/docker_env/mysql/log:/var/log
-      - ./deploy/docker_env/mysql/init:/docker-entrypoint-initdb.d
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     networks:
       fastapix_network:
         ipv4_address: 172.28.0.12

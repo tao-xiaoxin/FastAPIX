@@ -101,6 +101,16 @@ class Settings(BaseSettings):
     # 令牌设置
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     TOKEN_SECRET_KEY: str = os.getenv("TOKEN_SECRET_KEY", "your-token-secret-key-placeholder")
+    TOKEN_ALGORITHM: str = os.getenv("TOKEN_ALGORITHM", "HS256")
+    TOKEN_EXPIRE_SECONDS: int = int(os.getenv("TOKEN_EXPIRE_SECONDS", str(60 * 60 * 24)))  # 1天
+    TOKEN_REFRESH_EXPIRE_SECONDS: int = int(os.getenv("TOKEN_REFRESH_EXPIRE_SECONDS", str(60 * 60 * 24 * 7)))  # 7天
+    TOKEN_REDIS_PREFIX: str = os.getenv("TOKEN_REDIS_PREFIX", "token:")
+    TOKEN_REFRESH_REDIS_PREFIX: str = os.getenv("TOKEN_REFRESH_REDIS_PREFIX", "refresh_token:")
+    TOKEN_EXCLUDE_PATHS: List[str] = ["/v1/auth/login", "/v1/auth/register", "/v1/auth/token", "/v1/auth/token/refresh"]
+    # 控制是否使用Redis存储令牌
+    USE_REDIS_FOR_TOKENS: bool = os.getenv("USE_REDIS_FOR_TOKENS", "True").lower() == "true"
+    # 令牌类型设置
+    TOKEN_TYPE: str = os.getenv("TOKEN_TYPE", "bearer")
 
     # 日志配置
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
