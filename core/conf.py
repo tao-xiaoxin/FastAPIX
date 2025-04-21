@@ -115,6 +115,14 @@ class Settings(BaseSettings):
     # 日志配置
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    # logru配置
+    LOG_JSON_FORMAT: bool = os.getenv("LOG_JSON_FORMAT", "False").lower() == "true"  # 是否使用JSON格式输出到文件
+    LOG_CONSOLE_COLOR: bool = os.getenv("LOG_CONSOLE_COLOR", "True").lower() == "true"  # 是否使用彩色控制台输出
+    LOG_FILE_ROTATION: int = int(os.getenv("LOG_FILE_ROTATION", "10485760"))  # 日志文件大小限制，默认10MB
+    LOG_FILE_BACKUP_COUNT: int = int(os.getenv("LOG_FILE_BACKUP_COUNT", "5"))  # 保留的备份文件数量
+    LOG_REQUEST_FIELDS: List[str] = ["client", "method", "url", "status", "time"]  # 请求日志字段
+    LOG_INCLUDE_CONTEXT: bool = os.getenv("LOG_INCLUDE_CONTEXT", "True").lower() == "true"  # 是否包含上下文信息
+    LOG_CONTEXT_REQUEST_ID: str = "request_id"  # 请求ID的上下文键名
 
     # 其他配置
     OPERA_LOG_ENCRYPT_SECRET_KEY: Optional[str] = os.getenv("OPERA_LOG_ENCRYPT_SECRET_KEY")

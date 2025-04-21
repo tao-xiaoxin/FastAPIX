@@ -12,3 +12,5 @@ passlib
 python-dotenv
 email-validator
 gunicorn
+cryptography
+logru

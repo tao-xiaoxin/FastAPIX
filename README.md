@@ -17,6 +17,7 @@ FastAPIX 是一个基于 FastAPI 框架的高性能、扩展性强的 Web 应用
 * 全面的 API 文档 (基于 Swagger/OpenAPI)
 * 依赖注入系统，提高代码可测试性和可维护性
 * SQL 优先的开发工作流，充分利用数据库特性
+* 优雅的日志系统，基于logru的结构化和上下文感知日志记录
 
 ## 设计原则与架构
 
@@ -326,7 +327,8 @@ FastAPIX
 ├── utils                   # 工具类
 │   ├── __init__.py
 │   ├── helpers.py          # 通用辅助函数
-│   ├── log.py              # 日志配置
+│   ├── log.py              # 基于logru的优雅日志系统
+│   ├── log_examples.py     # 日志系统使用示例
 │   ├── response.py         # API响应格式化
 │   ├── exception.py        # 全局异常处理
 │   ├── serializers.py      # 序列化工具
@@ -477,3 +479,31 @@ docker run -d -p 8099:8099 --name fastapiX-app fastapiX:latest
 
 * 感谢所有为这个项目做出贡献的团队成员。
 * 特别感谢 [FastAPI](https://fastapi.tiangolo.com/) 框架提供的支持。
+
+### 日志系统
+
+FastAPIX 集成了基于 logru 的优雅日志系统，提供了丰富的功能：
+
+* **彩色终端输出**：不同级别的日志采用不同颜色，提高可读性
+* **结构化日志记录**：支持 JSON 格式输出，方便后期分析和处理
+* **上下文感知**：可以在整个请求生命周期中携带上下文信息
+* **请求跟踪**：自动为每个请求生成唯一 ID，跟踪完整请求流程
+* **灵活配置**：可通过环境变量轻松配置日志行为
+
+示例用法：
+
+```python
+# 基本日志记录
+from utils.log import log
+log.info("这是一条普通信息")
+log.error("发生错误", exc_info=True)
+log.success("操作成功")  # 自定义成功日志
+
+# 上下文日志记录
+user_logger = log.with_context(user_id=123, username="admin")
+user_logger.info("用户执行操作")  # 自动包含用户上下文
+
+# 请求日志记录（在中间件中自动处理）
+request_logger = log.with_request(request)
+request_logger.info("处理请求")  # 包含请求信息和唯一ID
+```

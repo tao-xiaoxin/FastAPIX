@@ -3,7 +3,7 @@
 """
 工具模块
 """
-from utils.log import log, setup_logging, set_customize_logfile
+from utils.log import log
 from utils.security import (
     verify_password, 
     get_password_hash,
@@ -13,6 +13,10 @@ from utils.security import (
 )
 from utils.exception import register_exception
 from utils.serializers import JsonResponse, response_success, response_error
+
+# 为了与旧版API兼容，提供别名
+setup_logging = log.configure
+set_customize_logfile = log.set_customize_logfile
 
 __all__ = [
     "log",
