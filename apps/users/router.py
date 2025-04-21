@@ -1,6 +1,5 @@
 from fastapi import APIRouter
-from apps.users.handlers import UserHandler
-from core.dependencies import get_user_handler
+from core.dependencies import get_user_service
 
 users_router = APIRouter(prefix="/users", tags=["users"])
 
