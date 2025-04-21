@@ -312,8 +312,7 @@ FastAPIX
 │   ├── conf.py             # 项目配置
 │   ├── path_conf.py        # 路径配置
 │   ├── router.py           # 主路由注册
-│   ├── registrar.py        # 应用注册与初始化
-│   └── security.py         # 安全配置
+│   └── registrar.py        # 应用注册与初始化
 ├── engines                 # 数据库连接
 │   ├── __init__.py
 │   ├── mysql.py            # MySQL管理器

@@ -9,8 +9,8 @@ from typing import Optional, Dict, Any, Union
 
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Security
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from core.conf import settings
 
@@ -85,7 +85,7 @@ def create_access_token(
     encoded_jwt = jwt.encode(
         payload, 
         settings.SECRET_KEY, 
-        algorithm="HS256"
+        algorithm=settings.TOKEN_ALGORITHM
     )
     
     return encoded_jwt
@@ -108,7 +108,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         payload = jwt.decode(
             token, 
             settings.SECRET_KEY, 
-            algorithms=["HS256"]
+            algorithms=[settings.TOKEN_ALGORITHM]
         )
         return payload
     except JWTError as e:
@@ -132,7 +132,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+        headers={"WWW-Authenticate": f"{settings.TOKEN_TYPE}"},
     )
     
     try:
