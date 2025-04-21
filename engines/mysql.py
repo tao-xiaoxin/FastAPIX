@@ -1,39 +1,55 @@
 """
 MySQL数据库引擎和连接池
+集成同步和异步数据库访问功能
 Created by: tao-xiaoxin
 """
 import sys
-from typing import Any, Dict, List, Union, Tuple, AsyncGenerator, Annotated, Optional, Type
+from typing import Any, Dict, List, Union, Tuple, AsyncGenerator, Annotated, Optional, Type, Generator
 from dbutils.pooled_db import PooledDB
 import pymysql
-from sqlalchemy import URL, text
+from sqlalchemy import URL, text, create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine
 )
+from sqlalchemy.orm import sessionmaker, Session
 from fastapi import Depends
 from utils.log import log
 from core.conf import settings
 
+# 创建Base类，所有模型都将继承此类
+Base = declarative_base()
 
 class MySQLManager:
-    """数据库管理类 - 处理SQLAlchemy异步会话"""
+    """数据库管理类 - 处理SQLAlchemy异步和同步会话"""
     
     def __init__(self):
         """初始化数据库管理器"""
-        self.engine = None
+        # 异步相关属性
+        self.async_engine = None
         self.async_session = None
-        self.initialized = False
-        self.database_url = (
+        self.initialized_async = False
+        self.async_database_url = (
             f'mysql+asyncmy://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}'
+            f'@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}'
+            f'?charset={settings.MYSQL_CHARSET}'
+        )
+        
+        # 同步相关属性
+        self.sync_engine = None
+        self.sync_session = None
+        self.initialized_sync = False
+        self.sync_database_url = (
+            f'mysql+pymysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}'
             f'@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}'
             f'?charset={settings.MYSQL_CHARSET}'
         )
 
     async def init_database(self) -> None:
-        """初始化数据库连接"""
-        if self.initialized:
+        """初始化异步数据库连接"""
+        if self.initialized_async:
             return
 
         try:
@@ -44,8 +60,8 @@ class MySQLManager:
                 log.error('❌ Required package "asyncmy" is not installed. Please run: pip install asyncmy')
                 return
 
-            self.engine = create_async_engine(
-                self.database_url,
+            self.async_engine = create_async_engine(
+                self.async_database_url,
                 echo=settings.MYSQL_ECHO,
                 pool_pre_ping=True,
                 pool_size=settings.MYSQL_POOL_SIZE,
@@ -53,20 +69,57 @@ class MySQLManager:
             )
 
             self.async_session = async_sessionmaker(
-                bind=self.engine,
+                bind=self.async_engine,
                 autoflush=False,
                 expire_on_commit=False
             )
 
             # 测试连接
-            async with self.engine.begin() as conn:
+            async with self.async_engine.begin() as conn:
                 await conn.execute(text("SELECT 1"))
 
-            self.initialized = True
-            log.success('✅ Database connection established successfully')
+            self.initialized_async = True
+            log.success('✅ Async database connection established successfully')
 
         except Exception as e:
-            log.error(f'❌ Database connection failed: {str(e)}')
+            log.error(f'❌ Async database connection failed: {str(e)}')
+            if "Access denied" in str(e):
+                log.error('❌ Database access denied. Please check your credentials.')
+            elif "Can't connect" in str(e):
+                log.error('❌ Cannot connect to database. Please check if the database server is running.')
+
+    def init_sync_database(self) -> None:
+        """初始化同步数据库连接"""
+        if self.initialized_sync:
+            return
+
+        try:
+            self.sync_engine = create_engine(
+                self.sync_database_url,
+                echo=settings.MYSQL_ECHO,
+                pool_pre_ping=True,
+                pool_size=settings.MYSQL_POOL_SIZE,
+                max_overflow=settings.MYSQL_MAX_OVERFLOW,
+                future=True
+            )
+
+            self.sync_session = sessionmaker(
+                bind=self.sync_engine,
+                autoflush=False,
+                autocommit=False,
+                expire_on_commit=False,
+                future=True
+            )
+
+            # 测试连接
+            with self.sync_engine.begin() as conn:
+                conn.execute(text("SELECT 1"))
+
+            self.initialized_sync = True
+            log.success('✅ Sync database connection established successfully')
+
+        except Exception as e:
+            log.error(f'❌ Sync database connection failed: {str(e)}')
             if "Access denied" in str(e):
                 log.error('❌ Database access denied. Please check your credentials.')
             elif "Can't connect" in str(e):
@@ -74,19 +127,24 @@ class MySQLManager:
 
     async def close_database(self) -> None:
         """关闭数据库连接"""
-        if self.engine:
-            await self.engine.dispose()
-            self.initialized = False
-            log.success('✅ Database connection closed successfully')
+        if self.async_engine:
+            await self.async_engine.dispose()
+            self.initialized_async = False
+            log.success('✅ Async database connection closed successfully')
+        
+        if self.sync_engine:
+            self.sync_engine.dispose()
+            self.initialized_sync = False
+            log.success('✅ Sync database connection closed successfully')
 
     async def get_db(self) -> AsyncGenerator[AsyncSession, None]:
         """
-        获取数据库会话的依赖函数
+        获取异步数据库会话的依赖函数
 
         Yields:
             AsyncSession: 异步数据库会话对象
         """
-        if not self.initialized:
+        if not self.initialized_async:
             await self.init_database()
 
         session = self.async_session()
@@ -98,6 +156,44 @@ class MySQLManager:
             raise e
         finally:
             await session.close()
+    
+    def get_sync_db(self) -> Generator[Session, None, None]:
+        """
+        获取同步数据库会话的依赖函数
+
+        Yields:
+            Session: 同步数据库会话对象
+        """
+        if not self.initialized_sync:
+            self.init_sync_database()
+            
+        session = self.sync_session()
+        try:
+            log.debug("Sync database session created")
+            yield session
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+            log.debug("Sync database session closed")
+    
+    def init_db_tables(self) -> None:
+        """
+        初始化数据库表
+        创建所有表和初始数据
+        """
+        try:
+            if not self.initialized_sync:
+                self.init_sync_database()
+                
+            # 创建所有未创建的表
+            Base.metadata.create_all(bind=self.sync_engine)
+            log.info("✅ Database tables created successfully")
+        except Exception as e:
+            log.error(f"❌ Error initializing database tables: {e}")
+            raise
 
 
 class PyMySQLConnectionPool:
@@ -316,7 +412,9 @@ class PyMySQLConnectionPool:
 
 # 创建全局 MySQL 管理器实例
 mysql_manager = MySQLManager()
-# 创建会话依赖
-CurrentSession = Annotated[AsyncSession, Depends(mysql_manager.get_db)]
+# 创建异步会话依赖
+AsyncDBSession = Annotated[AsyncSession, Depends(mysql_manager.get_db)]
+# 创建同步会话依赖
+SyncDBSession = Annotated[Session, Depends(mysql_manager.get_sync_db)]
 # 创建默认数据库连接池实例
 default_db_pool = PyMySQLConnectionPool()
