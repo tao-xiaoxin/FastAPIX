@@ -203,7 +203,9 @@ FastAPIX
 ├── engines                 # 数据库连接
 │   ├── __init__.py
 │   ├── database.py         # MySQL连接
-│   └── redis.py            # Redis连接
+│   ├── mysql.py            # MySQL管理器
+│   ├── redis.py            # Redis连接
+│   └── base.py             # 基础定义
 ├── middleware              # 中间件组件
 │   ├── __init__.py
 │   ├── auth_middleware.py  # 认证中间件
@@ -212,9 +214,22 @@ FastAPIX
 │   └── rate_limit_middleware.py  # 请求速率限制中间件
 ├── utils                   # 工具类
 │   ├── __init__.py
-│   ├── helpers.py
+│   ├── helpers.py          # 通用辅助函数
+│   ├── log.py              # 日志配置
+│   ├── response.py         # API响应格式化
+│   ├── exception.py        # 全局异常处理
+│   ├── serializers.py      # 序列化工具
+│   ├── token_manager.py    # 令牌管理
 │   └── security.py         # 安全相关工具(加密、token等)
-├── apps                    # 业务模块直接放在apps下
+├── core                    # 核心配置
+│   ├── __init__.py
+│   ├── conf.py             # 项目配置
+│   ├── dependencies.py     # 依赖注入
+│   ├── path_conf.py        # 路径配置
+│   ├── router.py           # 主路由注册
+│   ├── registrar.py        # 应用注册
+│   └── security.py         # 安全配置
+├── apps                    # 业务模块目录
 │   ├── __init__.py
 │   ├── users               # 用户模块
 │   │   ├── __init__.py
@@ -222,33 +237,44 @@ FastAPIX
 │   │   ├── repository.py   # 数据访问层
 │   │   ├── schemas.py      # 数据验证和响应模型
 │   │   ├── service.py      # 业务逻辑
+│   │   ├── handlers.py     # 请求处理层
 │   │   └── router.py       # API路由
 │   └── auth                # 认证模块
 │       ├── __init__.py
-│       ├── models.py
-│       ├── repository.py
-│       ├── schemas.py
-│       ├── service.py
-│       └── router.py
-├── api                     # API相关
-│   ├── __init__.py
-│   ├── dependencies.py     # 依赖注入
-│   └── routes.py           # 路由注册
-├── sql                     # SQL脚本
-│   ├── schema.sql          # 数据库结构
-│   └── initial_data.sql    # 初始数据
-├── requirements.txt
-├── .env
-└── README.md
+│       ├── models.py       # 数据库模型
+│       ├── repository.py   # 数据访问层
+│       ├── schemas.py      # 数据验证和响应模型
+│       ├── service.py      # 业务逻辑
+│       ├── handlers.py     # 请求处理层
+│       └── router.py       # API路由
+├── deploy                  # 部署相关
+│   ├── docker_env          # Docker环境
+│   ├── gunicorn_conf.py    # Gunicorn配置
+│   └── start.sh            # 启动脚本
+├── requirements.txt        # 项目依赖
+├── .env                    # 环境变量
+├── .env.example            # 环境变量示例
+├── docker-compose.yml      # Docker组合配置
+└── README.md               # 项目文档
 ```
 
 ### 目录结构设计优势
 
-* **清晰的关注点分离**：配置、数据库连接、业务逻辑各自独立，职责明确
+* **清晰的分层架构**：遵循「表现层-业务层-数据访问层」的三层架构
+* **关注点分离**：配置、数据库连接、业务逻辑各自独立，职责明确
 * **扁平化结构**：顶层目录清晰展示项目的主要组件，避免过深的嵌套
 * **模块化设计**：apps 目录下按功能领域组织代码，便于扩展
-* **依赖注入友好**：分离的 repository 和 service 层便于依赖注入
+* **依赖注入友好**：分离的 repository、service 和 handlers 层便于依赖注入和测试
 * **符合 SOLID 原则**：单一职责、开放封闭、接口隔离
+
+### 模块层次结构
+
+* **Router 层**: 负责路由注册和配置，使用add_api_route方法注册路由
+* **Handler 层**: 处理HTTP请求和响应，调用业务服务
+* **Service 层**: 实现所有业务逻辑，协调多个资源
+* **Repository 层**: 处理所有数据访问，与数据库交互
+* **Model 层**: 定义数据库模型和关系
+* **Schema 层**: 处理请求验证和响应序列化
 
 ## 开发指南
 
