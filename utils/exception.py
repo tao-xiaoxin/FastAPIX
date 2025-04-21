@@ -18,10 +18,7 @@ import traceback
 
 from utils.log import log
 from utils.response import APIResponse, StandardResponseCode, CustomResponseCode
-from utils.schema import (
-    CUSTOM_USAGE_ERROR_MESSAGES,
-    CUSTOM_VALIDATION_ERROR_MESSAGES,
-)
+from utils.schema import CUSTOM_VALIDATION_ERROR_MESSAGES
 from core.conf import settings
 from utils.serializers import JsonResponse
 
@@ -89,24 +86,6 @@ class TokenError(HTTPError):
 
     def __init__(self, *, msg: str = 'Not Authenticated', headers: dict[str, Any] | None = None):
         super().__init__(code=self.code, msg=msg, headers=headers or {'WWW-Authenticate': 'Bearer'})
-
-
-class NotFoundException(Exception):
-    """资源不存在异常"""
-    def __init__(self, detail: str):
-        self.detail = detail
-
-
-class AuthenticationException(Exception):
-    """认证失败异常"""
-    def __init__(self, detail: str):
-        self.detail = detail
-
-
-class ForbiddenException(Exception):
-    """权限不足异常"""
-    def __init__(self, detail: str):
-        self.detail = detail
 
 
 def _get_exception_code(status_code: int):
@@ -226,25 +205,6 @@ def register_exception(app: FastAPI) -> None:
         """
         log.error(f"Validation error: {exc}")
         return await _validation_exception_handler(request, exc)
-
-    @app.exception_handler(PydanticUserError)
-    async def pydantic_user_error_handler(request: Request, exc: PydanticUserError):
-        """
-        Pydantic 用户异常处理
-
-        :param request:
-        :param exc:
-        :return:
-        """
-        log.error(f"Pydantic user error: {exc}")
-        return JsonResponse(
-            status_code=StandardResponseCode.HTTP_500,
-            content={
-                'code': StandardResponseCode.HTTP_500,
-                'msg': CUSTOM_USAGE_ERROR_MESSAGES.get(exc.code),
-                'data': None,
-            },
-        )
 
     @app.exception_handler(AssertionError)
     async def assertion_error_handler(request: Request, exc: AssertionError):
