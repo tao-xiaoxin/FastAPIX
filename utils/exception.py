@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from typing import Union, Dict, Any
 
 from utils.log import log
+from utils.response import APIResponse, StandardResponseCode
 
 
 def register_exception(app: FastAPI) -> None:
@@ -25,13 +26,11 @@ def register_exception(app: FastAPI) -> None:
         处理Pydantic验证错误
         """
         log.error(f"Validation error: {exc}")
-        return JSONResponse(
+        return APIResponse.error(
+            msg="数据验证错误",
+            code=422,
             status_code=422,
-            content={
-                "code": 422,
-                "message": "数据验证错误",
-                "detail": exc.errors()
-            }
+            data=exc.errors()
         )
     
     @app.exception_handler(Exception)
@@ -40,13 +39,11 @@ def register_exception(app: FastAPI) -> None:
         处理所有未捕获的异常
         """
         log.error(f"Unhandled exception: {exc}")
-        return JSONResponse(
+        return APIResponse.error(
+            msg="服务器内部错误", 
+            code=500, 
             status_code=500,
-            content={
-                "code": 500,
-                "message": "服务器内部错误",
-                "detail": str(exc)
-            }
+            data=str(exc)
         )
     
     log.info("Global exception handlers registered")
@@ -81,8 +78,8 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from uvicorn.protocols.http.h11_impl import STATUS_PHRASES
 import logging
-from utils.responses import CustomResponseCode, StandardResponseCode
-from utils.responses import APIResponse
+from utils.response import CustomResponseCode, StandardResponseCode
+from utils.response import APIResponse
 from utils.schema import (
     CUSTOM_USAGE_ERROR_MESSAGES,
     CUSTOM_VALIDATION_ERROR_MESSAGES,

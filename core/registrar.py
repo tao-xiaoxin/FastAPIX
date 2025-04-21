@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 应用注册器
@@ -18,7 +19,7 @@ from middleware.access_middleware import AccessMiddleware
 from middleware.auth_middleware import AuthMiddleware
 from utils.exception import register_exception
 from utils.log import set_customize_logfile, setup_logging
-from utils.serializers import JsonResponse
+from utils.response import APIResponse
 from core.router import routers as main_router
 
 
@@ -63,7 +64,7 @@ def register_app():
         docs_url=settings.DOCS_URL,
         redoc_url=settings.REDOCS_URL,
         openapi_url=settings.OPENAPI_URL,
-        default_response_class=JsonResponse,
+        default_response_class=APIResponse,
         lifespan=register_init  # 使用异步上下文管理器管理应用生命周期
     )
 
