@@ -1,5 +1,5 @@
 services:
-  pf-redis:
+  api-redis:
     image: redis:7.2.4-alpine
     container_name: api-redis
     restart: always
@@ -15,16 +15,15 @@ services:
     command: "/bin/sh -c 'echo \"vm.overcommit_memory = 1\" >> /etc/sysctl.conf && redis-server /etc/redis/redis.conf'"
     privileged: true
     networks:
-      network:
-        ipv4_address: 177.10.0.11
+      - fastapix_network
 
-  pf-mysql:
+  api-mysql:
     image: mysql:8.4.2
     container_name: api-mysql
     privileged: true
     restart: always
     ports:
-      - "3306:3306"
+      - "3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: "ZH$$ewA38pjgyn"
       MYSQL_DATABASE: "fastapix_db"
@@ -35,12 +34,12 @@ services:
       - ./deploy/docker_env/mysql/log:/var/log
       - ./deploy/docker_env/mysql/init:/docker-entrypoint-initdb.d
     networks:
-      network:
-        ipv4_address: 177.10.0.12
+      fastapix_network:
+        ipv4_address: 172.28.0.12
 
 networks:
-  network:
+  fastapix_network:
+    driver: bridge
     ipam:
-      driver: default
       config:
-        - subnet: '177.10.0.0/24'
+        - subnet: 172.28.0.0/16
