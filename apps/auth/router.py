@@ -49,6 +49,3 @@ auth_router.add_api_route(
     methods=["POST"],
     description="吊销令牌",
 )
-
-# 注意：AccessKey相关的路由已被移除
-# 令牌管理现在直接通过用户凭据实现，并存储在Redis中

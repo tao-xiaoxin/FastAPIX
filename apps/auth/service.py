@@ -158,7 +158,3 @@ class AuthService:
         except Exception as e:
             log.error(f"Failed to revoke tokens: {str(e)}")
             raise ValueError(f"吊销令牌失败: {str(e)}")
-    
-    # 注意：令牌管理现在通过token_manager实现
-    # 可以根据配置选择使用Redis或内存存储
-    # 这种设计提供了更好的性能、安全性和灵活性

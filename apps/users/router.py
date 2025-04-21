@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-from core.dependencies import get_user_service
 
 users_router = APIRouter(prefix="/users", tags=["users"])
 

@@ -73,7 +73,3 @@ async def revoke_token(
         return APIResponse.error(msg="令牌吊销失败", code=400, status_code=400)
     except ValueError as e:
         return APIResponse.error(msg=str(e), code=400, status_code=400)
-
-# 注意：AccessKey相关的处理函数已被移除
-# 令牌管理现在通过token_manager实现，并存储在Redis中
-# 这种设计提供了更好的性能、安全性和水平扩展能力 
