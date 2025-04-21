@@ -6,89 +6,24 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-from typing import Union, Dict, Any
-
-from utils.log import log
-from utils.response import APIResponse, StandardResponseCode
-
-
-def register_exception(app: FastAPI) -> None:
-    """
-    注册全局异常处理器
-    
-    Args:
-        app: FastAPI应用实例
-    """
-    
-    @app.exception_handler(ValidationError)
-    async def validation_exception_handler(request: Request, exc: ValidationError):
-        """
-        处理Pydantic验证错误
-        """
-        log.error(f"Validation error: {exc}")
-        return APIResponse.error(
-            msg="数据验证错误",
-            code=422,
-            status_code=422,
-            data=exc.errors()
-        )
-    
-    @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception):
-        """
-        处理所有未捕获的异常
-        """
-        log.error(f"Unhandled exception: {exc}")
-        return APIResponse.error(
-            msg="服务器内部错误", 
-            code=500, 
-            status_code=500,
-            data=str(exc)
-        )
-    
-    log.info("Global exception handlers registered")
-
-
-class NotFoundException(Exception):
-    """资源不存在异常"""
-    def __init__(self, detail: str):
-        self.detail = detail
-
-
-class AuthenticationException(Exception):
-    """认证失败异常"""
-    def __init__(self, detail: str):
-        self.detail = detail
-
-
-class ForbiddenException(Exception):
-    """权限不足异常"""
-    def __init__(self, detail: str):
-        self.detail = detail
-
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-from typing import Any
-from fastapi import FastAPI, Request
+from typing import Union, Dict, Any, Optional
 from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
 from pydantic.errors import PydanticUserError
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
+from starlette.background import BackgroundTask
 from uvicorn.protocols.http.h11_impl import STATUS_PHRASES
 import logging
-from utils.response import CustomResponseCode, StandardResponseCode
-from utils.response import APIResponse
+import traceback
+
+from utils.log import log
+from utils.response import APIResponse, StandardResponseCode, CustomResponseCode
 from utils.schema import (
     CUSTOM_USAGE_ERROR_MESSAGES,
     CUSTOM_VALIDATION_ERROR_MESSAGES,
 )
 from core.conf import settings
 from utils.serializers import JsonResponse
-from fastapi import HTTPException
-from starlette.background import BackgroundTask
-
 
 class BaseExceptionMixin(Exception):
     code: int
@@ -156,6 +91,24 @@ class TokenError(HTTPError):
         super().__init__(code=self.code, msg=msg, headers=headers or {'WWW-Authenticate': 'Bearer'})
 
 
+class NotFoundException(Exception):
+    """资源不存在异常"""
+    def __init__(self, detail: str):
+        self.detail = detail
+
+
+class AuthenticationException(Exception):
+    """认证失败异常"""
+    def __init__(self, detail: str):
+        self.detail = detail
+
+
+class ForbiddenException(Exception):
+    """权限不足异常"""
+    def __init__(self, detail: str):
+        self.detail = detail
+
+
 def _get_exception_code(status_code: int):
     """
     获取返回状态码, OpenAPI, Uvicorn... 可用状态码基于 RFC 定义, 详细代码见下方链接
@@ -218,7 +171,13 @@ async def _validation_exception_handler(request: Request, e: RequestValidationEr
     return JsonResponse(status_code=422, content=content)
 
 
-def register_exception(app: FastAPI):
+def register_exception(app: FastAPI) -> None:
+    """
+    注册全局异常处理器
+    
+    Args:
+        app: FastAPI应用实例
+    """
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         """
@@ -253,6 +212,7 @@ def register_exception(app: FastAPI):
         :param exc:
         :return:
         """
+        log.error(f"Validation error: {exc}")
         return await _validation_exception_handler(request, exc)
 
     @app.exception_handler(ValidationError)
@@ -264,6 +224,7 @@ def register_exception(app: FastAPI):
         :param exc:
         :return:
         """
+        log.error(f"Validation error: {exc}")
         return await _validation_exception_handler(request, exc)
 
     @app.exception_handler(PydanticUserError)
@@ -275,6 +236,7 @@ def register_exception(app: FastAPI):
         :param exc:
         :return:
         """
+        log.error(f"Pydantic user error: {exc}")
         return JsonResponse(
             status_code=StandardResponseCode.HTTP_500,
             content={
@@ -293,6 +255,7 @@ def register_exception(app: FastAPI):
         :param exc:
         :return:
         """
+        log.error(f"Assertion error: {exc}")
         if settings.ENVIRONMENT == 'dev':
             content = {
                 'code': StandardResponseCode.HTTP_500,
@@ -327,10 +290,8 @@ def register_exception(app: FastAPI):
                 background=exc.background,
             )
         else:
-            import traceback
-
-            logging.error(f'未知异常: {exc}')
-            logging.error(traceback.format_exc())
+            log.error(f"未知异常: {exc}")
+            log.error(traceback.format_exc())
             if settings.ENVIRONMENT == 'dev':
                 content = {
                     'code': StandardResponseCode.HTTP_500,
