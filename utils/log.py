@@ -1,47 +1,48 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-日志模块 - 基于logru的优雅日志系统
+日志模块 - 基于loguru的优雅日志系统
 """
 import os
+import sys
 import uuid
 from pathlib import Path
 from typing import Optional, Dict, Any, Union, List, Callable
 
-from logru import Logger, LogLevel, TextHandler, RotatingFileHandler
-from logru.formatters import ConsoleFormatter, JsonFormatter, TextFormatter
-from logru.styles import Style, Color, Decoration
-
+from loguru import logger
 from core.conf import settings
 
+# 创建日志目录
+log_dir = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / settings.LOG_DIR
+log_dir.mkdir(exist_ok=True)
+
 # 日志级别映射
-LOG_LEVELS: Dict[str, LogLevel] = {
-    "DEBUG": LogLevel.DEBUG,
-    "INFO": LogLevel.INFO,
-    "WARNING": LogLevel.WARN,
-    "ERROR": LogLevel.ERROR,
-    "CRITICAL": LogLevel.CRITICAL,
+LOG_LEVELS = {
+    "DEBUG": "DEBUG",
+    "INFO": "INFO",
+    "WARNING": "WARNING",
+    "ERROR": "ERROR",
+    "CRITICAL": "CRITICAL",
 }
 
 # 获取日志级别
-LOG_LEVEL = LOG_LEVELS.get(settings.LOG_LEVEL, LogLevel.INFO)
+LOG_LEVEL = LOG_LEVELS.get(settings.LOG_LEVEL, "INFO")
 
-# 创建日志目录
-log_dir = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "logs"
-log_dir.mkdir(exist_ok=True)
-
-# 定义自定义样式
-STYLES = {
-    "success": Style(fg=Color.GREEN, decoration=Decoration.BOLD),
-    "info": Style(fg=Color.CYAN),
-    "warning": Style(fg=Color.YELLOW),
-    "error": Style(fg=Color.RED, decoration=Decoration.BOLD),
-    "critical": Style(fg=Color.MAGENTA, decoration=Decoration.BOLD),
-}
+# 自定义格式化器函数
+def formatter(record):
+    # 使用配置文件中定义的格式
+    format_string = settings.LOG_FORMAT
+    
+    # 如果有额外字段（context），添加到格式中
+    if record["extra"]:
+        extras = " | " + " | ".join(f"<blue>{k}</blue>: {v}" for k, v in record["extra"].items())
+        format_string += extras
+    
+    return format_string + "\n"
 
 class FastAPIXLogger:
     """
-    FastAPIX优雅的日志系统，基于logru实现
+    FastAPIX优雅的日志系统，基于loguru实现
     
     Features:
     - 精美的终端彩色输出
@@ -50,6 +51,7 @@ class FastAPIXLogger:
     - 自定义日志级别和样式
     - 上下文感知的日志记录
     - 请求跟踪与关联
+    - 错误日志与一般日志分离存储
     """
     _instance = None
     
@@ -59,71 +61,147 @@ class FastAPIXLogger:
         return cls._instance
     
     def __init__(self):
-        if not hasattr(self, 'logger'):
-            # 创建logru日志器
-            self.logger = Logger()
-            self.configured = False
+        self.logger = logger
+        self.configured = False
     
-    def configure(self, log_file: Optional[str] = None):
+    def configure(self):
         """配置日志系统"""
         if self.configured:
             return self
-            
-        if log_file is None:
-            log_file = "fastapix.log"
         
-        file_path = log_dir / log_file
+        # 移除默认处理器
+        self.logger.remove()
         
         # 添加控制台处理器（带彩色输出）
-        console_handler = TextHandler()
-        
         if settings.LOG_CONSOLE_COLOR:
-            console_formatter = ConsoleFormatter()
-            console_formatter.level_styles = {
-                LogLevel.DEBUG: STYLES["info"],
-                LogLevel.INFO: STYLES["info"],
-                LogLevel.WARN: STYLES["warning"],
-                LogLevel.ERROR: STYLES["error"],
-                LogLevel.CRITICAL: STYLES["critical"],
-            }
+            self.logger.add(
+                sys.stderr,
+                format=formatter,
+                level=LOG_LEVEL,
+                colorize=True,
+            )
         else:
-            console_formatter = TextFormatter()
-            
-        console_handler.formatter = console_formatter
+            # 无颜色版本的格式
+            plain_format = settings.LOG_FORMAT.replace("<green>", "").replace("</green>", "") \
+                                          .replace("<level>", "").replace("</level>", "") \
+                                          .replace("<cyan>", "").replace("</cyan>", "") \
+                                          .replace("<blue>", "").replace("</blue>", "")
+            self.logger.add(
+                sys.stderr,
+                format=plain_format,
+                level=LOG_LEVEL,
+                colorize=False,
+            )
         
-        # 添加文件处理器
-        file_handler = RotatingFileHandler(
-            path=str(file_path),
-            max_size=settings.LOG_FILE_ROTATION,
-            backup_count=settings.LOG_FILE_BACKUP_COUNT,
+        # 定义基本格式
+        if settings.LOG_JSON_FORMAT:
+            # JSON格式
+            log_format = "{time} | {level} | {message} | {extra}"
+            serialize = True
+        else:
+            # 文本格式 - 无颜色标签版本
+            log_format = settings.LOG_FORMAT.replace("<green>", "").replace("</green>", "") \
+                                      .replace("<level>", "").replace("</level>", "") \
+                                      .replace("<cyan>", "").replace("</cyan>", "") \
+                                      .replace("<blue>", "").replace("</blue>", "")
+            serialize = False
+        
+        # 添加普通日志文件处理器 (DEBUG, INFO, WARNING)
+        info_log_path = str(log_dir / settings.LOG_INFO_FILENAME)
+        self.logger.add(
+            sink=info_log_path,
+            format=log_format,
+            level="DEBUG",  # 从DEBUG级别开始记录
+            filter=lambda record: record["level"].no < logger.level("ERROR").no,  # 只记录ERROR级别以下的日志
+            rotation=settings.LOG_FILE_ROTATION,
+            retention=settings.LOG_FILE_BACKUP_COUNT,
+            serialize=serialize,
         )
         
-        # 根据配置选择格式化器
-        if settings.LOG_JSON_FORMAT:
-            file_handler.formatter = JsonFormatter()
-        else:
-            file_handler.formatter = TextFormatter()
-        
-        # 设置日志级别并添加处理器
-        self.logger.level = LOG_LEVEL
-        self.logger.add_handler(console_handler)
-        self.logger.add_handler(file_handler)
+        # 添加错误日志文件处理器 (ERROR, CRITICAL)
+        error_log_path = str(log_dir / settings.LOG_ERROR_FILENAME)
+        self.logger.add(
+            sink=error_log_path,
+            format=log_format,
+            level="ERROR",  # 只记录ERROR及以上级别
+            rotation=settings.LOG_FILE_ROTATION,
+            retention=settings.LOG_FILE_BACKUP_COUNT,
+            serialize=serialize,
+        )
         
         self.configured = True
-        self.logger.info(f"日志系统初始化完成，日志文件：{file_path}")
         return self
     
-    def set_customize_logfile(self, filename: Optional[str] = None):
+    def set_customize_logfile(self):
         """设置自定义日志文件"""
-        if not filename:
-            filename = "fastapix_customize.log"
+        # 从配置文件中获取自定义日志文件名
+        info_filename = settings.LOG_CUSTOMIZE_INFO_FILENAME
+        error_filename = settings.LOG_CUSTOMIZE_ERROR_FILENAME
         
-        # 清除现有处理器
-        self.logger.handlers.clear()
+        # 移除现有处理器
+        self.logger.remove()
         self.configured = False
         
-        # 使用新文件名重新配置
-        return self.configure(filename)
+        # 添加控制台处理器（带彩色输出）
+        if settings.LOG_CONSOLE_COLOR:
+            self.logger.add(
+                sys.stderr,
+                format=formatter,
+                level=LOG_LEVEL,
+                colorize=True,
+            )
+        else:
+            # 无颜色版本的格式
+            plain_format = settings.LOG_FORMAT.replace("<green>", "").replace("</green>", "") \
+                                          .replace("<level>", "").replace("</level>", "") \
+                                          .replace("<cyan>", "").replace("</cyan>", "") \
+                                          .replace("<blue>", "").replace("</blue>", "")
+            self.logger.add(
+                sys.stderr,
+                format=plain_format,
+                level=LOG_LEVEL,
+                colorize=False,
+            )
+        
+        # 定义基本格式
+        if settings.LOG_JSON_FORMAT:
+            # JSON格式
+            log_format = "{time} | {level} | {message} | {extra}"
+            serialize = True
+        else:
+            # 文本格式 - 无颜色标签版本
+            log_format = settings.LOG_FORMAT.replace("<green>", "").replace("</green>", "") \
+                                      .replace("<level>", "").replace("</level>", "") \
+                                      .replace("<cyan>", "").replace("</cyan>", "") \
+                                      .replace("<blue>", "").replace("</blue>", "")
+            serialize = False
+        
+        # 添加普通日志文件处理器 (DEBUG, INFO, WARNING)
+        info_log_path = str(log_dir / info_filename)
+        self.logger.add(
+            sink=info_log_path,
+            format=log_format,
+            level="DEBUG",  # 从DEBUG级别开始记录
+            filter=lambda record: record["level"].no < logger.level("ERROR").no,  # 只记录ERROR级别以下的日志
+            rotation=settings.LOG_FILE_ROTATION,
+            retention=settings.LOG_FILE_BACKUP_COUNT,
+            serialize=serialize,
+        )
+        
+        # 添加错误日志文件处理器 (ERROR, CRITICAL)
+        error_log_path = str(log_dir / error_filename)
+        self.logger.add(
+            sink=error_log_path,
+            format=log_format,
+            level="ERROR",  # 只记录ERROR及以上级别
+            rotation=settings.LOG_FILE_ROTATION,
+            retention=settings.LOG_FILE_BACKUP_COUNT,
+            serialize=serialize,
+        )
+        
+        self.configured = True
+        self.logger.info(f"自定义日志系统初始化完成，普通日志文件：{info_log_path}，错误日志文件：{error_log_path}")
+        return self
     
     def with_context(self, **context) -> "ContextLogger":
         """创建带有上下文的日志记录器"""
@@ -158,7 +236,7 @@ class FastAPIXLogger:
         self.logger.info(message, **kwargs)
         
     def warning(self, message: str, **kwargs):
-        self.logger.warn(message, **kwargs)
+        self.logger.warning(message, **kwargs)
         
     def error(self, message: str, **kwargs):
         self.logger.error(message, **kwargs)
@@ -169,50 +247,39 @@ class FastAPIXLogger:
     # 自定义日志方法
     def success(self, message: str, **kwargs):
         """成功日志 - 绿色标记"""
-        # 使用info级别但带有success样式
-        self.logger.info(message, style=STYLES["success"], **kwargs)
+        # 使用成功级别记录日志
+        self.logger.success(message, **kwargs)
 
 
 class ContextLogger:
     """带有上下文的日志记录器，用于在整个请求流程中跟踪特定信息"""
     
-    def __init__(self, logger: Logger, context: Dict[str, Any]):
-        self.logger = logger
+    def __init__(self, logger, context: Dict[str, Any]):
+        self.logger = logger.bind(**context)
         self.context = context
     
     def debug(self, message: str, **kwargs):
-        self._log(self.logger.debug, message, **kwargs)
+        self.logger.debug(message, **kwargs)
         
     def info(self, message: str, **kwargs):
-        self._log(self.logger.info, message, **kwargs)
+        self.logger.info(message, **kwargs)
         
     def warning(self, message: str, **kwargs):
-        self._log(self.logger.warn, message, **kwargs)
+        self.logger.warning(message, **kwargs)
         
     def error(self, message: str, **kwargs):
-        self._log(self.logger.error, message, **kwargs)
+        self.logger.error(message, **kwargs)
         
     def critical(self, message: str, **kwargs):
-        self._log(self.logger.critical, message, **kwargs)
+        self.logger.critical(message, **kwargs)
         
     def success(self, message: str, **kwargs):
-        self._log(self.logger.info, message, style=STYLES["success"], **kwargs)
-    
-    def _log(self, log_method, message: str, **kwargs):
-        """合并上下文和额外参数后记录日志"""
-        if not settings.LOG_INCLUDE_CONTEXT:
-            # 如果配置为不包含上下文，则只记录消息
-            log_method(message, **kwargs)
-            return
-            
-        # 合并上下文，但允许kwargs覆盖相同的键
-        merged_kwargs = {**self.context, **kwargs}
-        log_method(message, **merged_kwargs)
+        self.logger.success(message, **kwargs)
     
     def with_context(self, **additional_context) -> "ContextLogger":
         """添加额外上下文"""
         merged_context = {**self.context, **additional_context}
-        return ContextLogger(self.logger, merged_context)
+        return ContextLogger(self.logger.parent, merged_context)
 
 
 # 创建单例实例并配置

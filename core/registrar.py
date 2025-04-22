@@ -93,7 +93,7 @@ def register_logger() -> None:
     :return:
     """
     setup_logging()
-    set_customize_logfile()
+    log.configure()  # 使用配置文件中的设置初始化日志系统
 
 
 def register_static_file(app: FastAPI):

@@ -115,15 +115,25 @@ class Settings(BaseSettings):
 
     # 日志配置
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    # logru配置
+    LOG_FORMAT: str = (
+        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+        "process:{process} | thread:{thread} | "
+        "<level>{message}</level>"
+    )  # 日志格式化
+    # loguru配置
+    LOG_DIR: str = os.getenv("LOG_DIR", "logs")  # 日志目录，相对于项目根目录
+    LOG_INFO_FILENAME: str = os.getenv("LOG_INFO_FILENAME", "info.log")  # 普通日志文件名
+    LOG_ERROR_FILENAME: str = os.getenv("LOG_ERROR_FILENAME", "error.log")  # 错误日志文件名
     LOG_JSON_FORMAT: bool = os.getenv("LOG_JSON_FORMAT", "False").lower() == "true"  # 是否使用JSON格式输出到文件
     LOG_CONSOLE_COLOR: bool = os.getenv("LOG_CONSOLE_COLOR", "True").lower() == "true"  # 是否使用彩色控制台输出
-    LOG_FILE_ROTATION: int = int(os.getenv("LOG_FILE_ROTATION", "10485760"))  # 日志文件大小限制，默认10MB
+    LOG_FILE_ROTATION: str = os.getenv("LOG_FILE_ROTATION", "10 MB")  # 日志文件大小限制，默认10MB
     LOG_FILE_BACKUP_COUNT: int = int(os.getenv("LOG_FILE_BACKUP_COUNT", "5"))  # 保留的备份文件数量
-    LOG_REQUEST_FIELDS: List[str] = ["client", "method", "url", "status", "time"]  # 请求日志字段
-    LOG_INCLUDE_CONTEXT: bool = os.getenv("LOG_INCLUDE_CONTEXT", "True").lower() == "true"  # 是否包含上下文信息
     LOG_CONTEXT_REQUEST_ID: str = "request_id"  # 请求ID的上下文键名
+    # 自定义日志文件配置
+    LOG_CUSTOMIZE_INFO_FILENAME: str = os.getenv("LOG_CUSTOMIZE_INFO_FILENAME", "customize_info.log")  # 自定义普通日志文件名
+    LOG_CUSTOMIZE_ERROR_FILENAME: str = os.getenv("LOG_CUSTOMIZE_ERROR_FILENAME", "customize_error.log")  # 自定义错误日志文件名
 
     # 其他配置
     OPERA_LOG_ENCRYPT_SECRET_KEY: Optional[str] = os.getenv("OPERA_LOG_ENCRYPT_SECRET_KEY")
