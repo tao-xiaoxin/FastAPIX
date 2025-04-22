@@ -5,7 +5,6 @@
 """
 import logging
 import uuid
-from datetime import datetime
 from typing import Any, Dict, Optional, List
 
 logger = logging.getLogger(__name__)
@@ -19,48 +18,6 @@ def generate_uuid() -> str:
         str: 唯一ID
     """
     return str(uuid.uuid4())
-
-
-def get_timestamp() -> int:
-    """
-    获取当前时间戳
-    
-    Returns:
-        int: 当前时间戳(秒)
-    """
-    return int(datetime.now().timestamp())
-
-
-def format_datetime(dt: datetime, format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
-    """
-    格式化日期时间
-    
-    Args:
-        dt: 日期时间对象
-        format_str: 格式字符串
-        
-    Returns:
-        str: 格式化后的日期时间字符串
-    """
-    return dt.strftime(format_str)
-
-
-def parse_datetime(date_str: str, format_str: str = "%Y-%m-%d %H:%M:%S") -> Optional[datetime]:
-    """
-    解析日期时间字符串
-    
-    Args:
-        date_str: 日期时间字符串
-        format_str: 格式字符串
-        
-    Returns:
-        Optional[datetime]: 解析后的日期时间对象，解析失败返回None
-    """
-    try:
-        return datetime.strptime(date_str, format_str)
-    except ValueError as e:
-        logger.error(f"Date parsing error: {e}")
-        return None
 
 
 def filter_none_values(data: Dict[str, Any]) -> Dict[str, Any]:

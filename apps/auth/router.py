@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-from core.dependencies import get_auth_service
 
 # 创建认证路由器
 auth_router = APIRouter(prefix="/auth", tags=["auth"])

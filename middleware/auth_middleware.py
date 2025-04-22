@@ -18,7 +18,7 @@ from engines import mysql_manager, AsyncDBSession
 from utils.token_manager import token_manager as token
 from utils.exception import TokenError
 from utils.log import log
-from utils.responses import APIResponse
+from utils.response import StandardAPIResponse as APIResponse
 
 # 废弃的直接获取get_db方式,保留向后兼容性
 get_db = mysql_manager.get_db

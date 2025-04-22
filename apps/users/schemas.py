@@ -25,7 +25,7 @@ class UserRead(UserBase):
     updated_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserInDB(UserRead):
     hashed_password: str

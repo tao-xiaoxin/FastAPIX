@@ -9,7 +9,6 @@ Created time: 2025-02-18 10:59:29
 import os
 from fastapi import FastAPI
 from core.conf import settings
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from engines import mysql_manager, redis_client
@@ -18,7 +17,6 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 from middleware.access_middleware import AccessMiddleware
 from middleware.auth_middleware import AuthMiddleware
 from utils.exception import register_exception
-from utils.log import set_customize_logfile, setup_logging
 from utils.response import APIResponse
 from core.router import routers as main_router
 
@@ -60,16 +58,12 @@ def register_app():
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.PROJECT_VERSION,
-        description=settings.DESCRIPTION,
         docs_url=settings.DOCS_URL,
         redoc_url=settings.REDOCS_URL,
         openapi_url=settings.OPENAPI_URL,
         default_response_class=APIResponse,
         lifespan=register_init  # 使用异步上下文管理器管理应用生命周期
     )
-
-    # 注册日志
-    register_logger()
 
     # 注册静态文件
     register_static_file(app)
@@ -86,16 +80,6 @@ def register_app():
     return app
 
 
-def register_logger() -> None:
-    """
-    系统日志
-
-    :return:
-    """
-    setup_logging()
-    log.configure()  # 使用配置文件中的设置初始化日志系统
-
-
 def register_static_file(app: FastAPI):
     """
     静态文件交互开发模式, 生产使用 nginx 静态资源服务
@@ -103,11 +87,19 @@ def register_static_file(app: FastAPI):
     :param app:
     :return:
     """
-    if settings.STATIC_FILES:
+    # 检查是否应该挂载静态文件，默认为True
+    if getattr(settings, "STATIC_FILES", True):
         if not os.path.exists(STATIC_DIR):
             os.mkdir(STATIC_DIR)
         app.mount('/static', StaticFiles(directory=STATIC_DIR), name='static')
-        app.mount("/media", StaticFiles(directory=settings.MEDIA_ROOT), name="media")
+        
+    # 检查是否有MEDIA_ROOT设置
+    media_root = getattr(settings, "MEDIA_ROOT", None)
+    if media_root:
+        # 确保目录存在
+        if not os.path.exists(media_root):
+            os.makedirs(media_root, exist_ok=True)
+        app.mount("/media", StaticFiles(directory=media_root), name="media")
 
 
 def register_middleware(app: FastAPI):
@@ -122,24 +114,24 @@ def register_middleware(app: FastAPI):
     if settings.MIDDLEWARE_CORS:
         from middleware.cors_middleware import setup_cors_middleware
         setup_cors_middleware(app)
-    
+
     # 2. 速率限制中间件
     if getattr(settings, "MIDDLEWARE_RATE_LIMIT", False):
         from middleware.rate_limit_middleware import setup_rate_limit_middleware
         setup_rate_limit_middleware(
-            app, 
+            app,
             limit=getattr(settings, "RATE_LIMIT_REQUESTS", 60),
             window=getattr(settings, "RATE_LIMIT_WINDOW", 60),
             redis_db=getattr(settings, "RATE_LIMIT_REDIS_DB", None)
         )
-    
+
     # 3. 认证中间件
     app.add_middleware(
-        AuthenticationMiddleware, 
-        backend=AuthMiddleware(), 
+        AuthenticationMiddleware,
+        backend=AuthMiddleware(),
         on_error=AuthMiddleware.auth_exception_handler
     )
-    
+
     # 4. 访问日志中间件
     if settings.MIDDLEWARE_ACCESS:
         app.add_middleware(AccessMiddleware)

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     REDOCS_URL: str = f"{API_V1_STR}/redoc"
     OPENAPI_URL: str = f"{API_V1_STR}/openapi.json"
 
+    # 时间和日期设置
+    DATETIME_TIMEZONE: str = os.getenv("DATETIME_TIMEZONE", "Asia/Shanghai")
+    DATETIME_FORMAT: str = os.getenv("DATETIME_FORMAT", "%Y-%m-%d %H:%M:%S")
+
     # CORS设置
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
 
@@ -137,6 +141,10 @@ class Settings(BaseSettings):
 
     # 其他配置
     OPERA_LOG_ENCRYPT_SECRET_KEY: Optional[str] = os.getenv("OPERA_LOG_ENCRYPT_SECRET_KEY")
+
+    # 静态文件设置
+    STATIC_FILES: bool = os.getenv("STATIC_FILES", "True").lower() == "true"  # 是否挂载静态文件目录
+    MEDIA_ROOT: str = os.getenv("MEDIA_ROOT", "media")  # 媒体文件目录路径
 
     model_config = {
         "case_sensitive": True,

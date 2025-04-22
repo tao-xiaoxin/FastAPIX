@@ -17,7 +17,7 @@ from engines import redis_client
 from utils.exception import TokenError
 from utils.timezone import timezone
 from utils.log import log
-from utils.security import hash_password, verify_password
+from utils.security import get_password_hash, verify_password
 
 
 class NewTokenPair(BaseModel):
@@ -193,7 +193,7 @@ class TokenManager:
         Returns:
             str: 加密后的密码
         """
-        return hash_password(password)
+        return get_password_hash(password)
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
