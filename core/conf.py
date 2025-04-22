@@ -4,6 +4,7 @@
 项目配置文件
 """
 import os
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional, Union, Any, Dict
 from pydantic import validator, AnyHttpUrl, PostgresDsn, RedisDsn, field_validator
@@ -133,5 +134,14 @@ class Settings(BaseSettings):
         "extra": "ignore"  # 允许额外的字段，不会引发验证错误
     }
 
+@lru_cache
+def get_settings() -> Settings:
+    """
+    获取全局配置,懒加载
+    :return:
+    """
+    return Settings()
 
-settings = Settings()
+
+# 创建配置实例
+settings = get_settings()
