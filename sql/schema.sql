@@ -5,8 +5,8 @@
 CREATE DATABASE IF NOT EXISTS fastapix_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- 创建用户并授权
-CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'ZH$$ewA38pjgyn';
-GRANT ALL PRIVILEGES ON fastapix_db.* TO 'root'@'%';
+CREATE USER IF NOT EXISTS 'fast_user'@'%' IDENTIFIED BY '4399.cn';
+GRANT ALL PRIVILEGES ON fastapix_db.* TO 'fast_user'@'%';
 FLUSH PRIVILEGES;
 
 -- 使用数据库

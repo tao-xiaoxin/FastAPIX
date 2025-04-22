@@ -25,14 +25,16 @@ services:
     ports:
       - "3307:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: "ZH$$ewA38pjgyn"
+      MYSQL_ROOT_PASSWORD: "4399.cn"
       MYSQL_DATABASE: "fastapix_db"
+      MYSQL_USER: fast_user
+      MYSQL_PASSWORD: "4399.cn"
       TZ: Asia/Shanghai
     volumes:
-      - ./deploy/docker_env/mysql/config:/etc/mysql/conf.d
+      - /data/docker_env/mysql/config:/etc/mysql/conf.d
       - ./deploy/docker_env/mysql/data:/var/lib/mysql
-      - ./deploy/docker_env/mysql/log:/var/log
-      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./deploy/docker_env/mysql/logs:/logs
+      - ./sql:/docker-entrypoint-initdb.d
     networks:
       fastapix_network:
         ipv4_address: 172.28.0.12

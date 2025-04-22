@@ -8,9 +8,9 @@ character-set-server = utf8mb4
 # 数据库排序字符集
 collation_server = utf8mb4_general_ci
 # 服务器在关闭交互式连接之前等待活动的秒数
-interactive_timeout = 7200
+interactive_timeout = 31536000
 # 服务器关闭非交互连接之前等待活动的秒数
-wait_timeout = 3600
+wait_timeout = 31536000
 # 时区配置
 log_timestamps = SYSTEM
 # 最大允许数据包
@@ -19,6 +19,8 @@ max_allowed_packet = 1073741824
 mysqlx = 0
 # 最大连接数
 max_connections = 1000
+# 默认身份验证插件
+default-authentication-plugin = mysql_native_password
 
 # === 日志相关 ===
 ## 错误日志
