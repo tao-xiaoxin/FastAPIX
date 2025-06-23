@@ -1,0 +1,47 @@
+services:
+  api-redis:
+    image: redis:7.2.4-alpine
+    container_name: api-redis
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./deploy/docker_env/redis/data:/data
+      - ./deploy/docker_env/redis/redis.conf:/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    sysctls:
+      - net.core.somaxconn=1024
+    command: "/bin/sh -c 'echo \"vm.overcommit_memory = 1\" >> /etc/sysctl.conf && redis-server /etc/redis/redis.conf'"
+    privileged: true
+    networks:
+      - fastapix_network
+
+  api-mysql:
+    image: mysql:8.4.2
+    container_name: api-mysql
+    privileged: true
+    restart: always
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "4399.cn"
+      MYSQL_DATABASE: "fastapix_db"
+      MYSQL_USER: fast_user
+      MYSQL_PASSWORD: "4399.cn"
+      TZ: Asia/Shanghai
+    volumes:
+      - /data/docker_env/mysql/config:/etc/mysql/conf.d
+      - ./deploy/docker_env/mysql/data:/var/lib/mysql
+      - ./deploy/docker_env/mysql/logs:/logs
+      - ./sql:/docker-entrypoint-initdb.d
+    networks:
+      fastapix_network:
+        ipv4_address: 172.28.0.12
+
+networks:
+  fastapix_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

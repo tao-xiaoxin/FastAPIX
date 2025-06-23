@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+pydantic-settings
+dbutils
+pymysql
+asyncmy
+redis>=5.2.1
+python-jose
+passlib
+python-dotenv
+email-validator
+gunicorn
+python-jose[cryptography]
+loguru
+python-multipart
